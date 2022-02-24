@@ -6,15 +6,15 @@
  * SPDX-License-Identifier: MIT
  */
 
+#include <errno.h>
+#include <limits.h>
 #include <stdlib.h>
+#include <string.h>
 #include <sys/stat.h>
 #include <unistd.h>
-#include <limits.h>
-#include <errno.h>
-#include <string.h>
 
-#include "pwm.h"
 #include "mraa_internal.h"
+#include "pwm.h"
 
 #define MAX_SIZE 64
 #define SYSFS_PWM "/sys/class/pwm"
@@ -81,14 +81,14 @@ mraa_pwm_write_duty(mraa_pwm_context dev, int duty)
     }
     if (dev->duty_fp == -1) {
         if (mraa_pwm_setup_duty_fp(dev) == 1) {
-            syslog(LOG_ERR, "pwm%i write_duty: Failed to open duty_cycle for writing: %s", dev->pin, strerror(errno));
+            syslog(LOG_ERR, "pwm%i write_duty: Failed to open duty_cycle for writing: %s", dev->pin,
+                   strerror(errno));
             return MRAA_ERROR_INVALID_RESOURCE;
         }
     }
     char bu[MAX_SIZE];
     int length = snprintf(bu, MAX_SIZE, "%d", duty);
-    if (write(dev->duty_fp, bu, length * sizeof(char)) == -1)
-    {
+    if (write(dev->duty_fp, bu, length * sizeof(char)) == -1) {
         syslog(LOG_ERR, "pwm%i write_duty: Failed to write to duty_cycle: %s", dev->pin, strerror(errno));
         return MRAA_ERROR_INVALID_RESOURCE;
     }
@@ -142,8 +142,8 @@ static int
 mraa_pwm_read_duty(mraa_pwm_context dev)
 {
     if (!dev) {
-       syslog(LOG_ERR, "pwm: read_duty: context is NULL");
-       return MRAA_ERROR_INVALID_HANDLE;
+        syslog(LOG_ERR, "pwm: read_duty: context is NULL");
+        return MRAA_ERROR_INVALID_HANDLE;
     }
 
     if (IS_FUNC_DEFINED(dev, pwm_read_replace)) {
@@ -152,8 +152,8 @@ mraa_pwm_read_duty(mraa_pwm_context dev)
 
     if (dev->duty_fp == -1) {
         if (mraa_pwm_setup_duty_fp(dev) == 1) {
-            syslog(LOG_ERR, "pwm%i read_duty: Failed to open duty_cycle for reading: %s",
-                    dev->pin, strerror(errno));
+            syslog(LOG_ERR, "pwm%i read_duty: Failed to open duty_cycle for reading: %s", dev->pin,
+                   strerror(errno));
             return -1;
         }
     } else {
@@ -182,7 +182,7 @@ mraa_pwm_read_duty(mraa_pwm_context dev)
 static mraa_pwm_context
 mraa_pwm_init_internal(mraa_adv_func_t* func_table, int chipin, int pin)
 {
-    mraa_pwm_context dev = (mraa_pwm_context) calloc(1,sizeof(struct _pwm));
+    mraa_pwm_context dev = (mraa_pwm_context) calloc(1, sizeof(struct _pwm));
     if (dev == NULL) {
         return NULL;
     }
@@ -263,12 +263,13 @@ mraa_pwm_init(int pin)
 mraa_pwm_context
 mraa_pwm_init_raw(int chipin, int pin)
 {
-    mraa_pwm_context dev = mraa_pwm_init_internal(plat == NULL ? NULL : plat->adv_func , chipin, pin);
+    mraa_pwm_context dev = mraa_pwm_init_internal(plat == NULL ? NULL : plat->adv_func, chipin, pin);
     if (dev == NULL) {
         syslog(LOG_CRIT, "pwm: Failed to allocate memory for context");
         return NULL;
     }
-
+    dev->advance_func = NULL;
+/*    
     if (IS_FUNC_DEFINED(dev, pwm_init_raw_replace)) {
         if (dev->advance_func->pwm_init_raw_replace(dev, pin) == MRAA_SUCCESS) {
             return dev;
@@ -277,7 +278,7 @@ mraa_pwm_init_raw(int chipin, int pin)
             return NULL;
         }
     }
-
+*/
     char directory[MAX_SIZE];
     snprintf(directory, MAX_SIZE, SYSFS_PWM "/pwmchip%d/pwm%d", dev->chipid, dev->pin);
     struct stat dir;
@@ -297,7 +298,8 @@ mraa_pwm_init_raw(int chipin, int pin)
         char out[MAX_SIZE];
         int size = snprintf(out, MAX_SIZE, "%d", dev->pin);
         if (write(export_f, out, size * sizeof(char)) == -1) {
-            syslog(LOG_WARNING, "pwm_init: pwm%i. Failed to write to export! (%s) Potentially already in use.", pin, strerror(errno));
+            syslog(LOG_WARNING, "pwm_init: pwm%i. Failed to write to export! (%s) Potentially already in use.",
+                   pin, strerror(errno));
             close(export_f);
             free(dev);
             return NULL;
@@ -333,7 +335,7 @@ mraa_pwm_write(mraa_pwm_context dev, float percentage)
     }
 
     if (percentage > 1.0f) {
-        syslog(LOG_WARNING, "pwm_write: %i%% entered, defaulting to 100%%",(int) percentage * 100);
+        syslog(LOG_WARNING, "pwm_write: %i%% entered, defaulting to 100%%", (int) percentage * 100);
         return mraa_pwm_write_duty(dev, dev->period);
     }
     return mraa_pwm_write_duty(dev, percentage * dev->period);
@@ -455,7 +457,8 @@ mraa_pwm_unexport_force(mraa_pwm_context dev)
 
     int unexport_f = open(filepath, O_WRONLY);
     if (unexport_f == -1) {
-        syslog(LOG_ERR, "pwm_unexport: pwm%i: Failed to open unexport for writing: %s", dev->pin, strerror(errno));
+        syslog(LOG_ERR, "pwm_unexport: pwm%i: Failed to open unexport for writing: %s", dev->pin,
+               strerror(errno));
         return MRAA_ERROR_INVALID_RESOURCE;
     }
 
