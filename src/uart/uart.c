@@ -337,7 +337,7 @@ mraa_uart_stop(mraa_uart_context dev)
 }
 
 mraa_result_t
-mraa_uart_settings(int index, const char **devpath, const char **name, int* baudrate, int* databits, int* stopbits, mraa_uart_parity_t* parity, unsigned int* ctsrts, unsigned int* xonxoff) {
+mraa_uart_settings(int index, const char **devpath, const char **name, int* baudrate, int* databits, int* stopbits, mraa_uart_parity_t* parity, mraa_boolean_t* ctsrts, mraa_boolean_t* xonxoff) {
     struct termios term;
     int fd;
 
@@ -415,11 +415,11 @@ mraa_uart_settings(int index, const char **devpath, const char **name, int* baud
        }
 
        if (ctsrts != NULL) {
-           *ctsrts = term.c_cflag & CRTSCTS;
+           *ctsrts = (term.c_cflag & CRTSCTS) != 0;
        }
 
        if (xonxoff != NULL) {
-           *xonxoff = term.c_iflag & (IXON|IXOFF);
+           *xonxoff = (term.c_iflag & (IXON|IXOFF)) != 0;
        }
 
        close(fd);
@@ -616,22 +616,18 @@ mraa_uart_set_flowcontrol(mraa_uart_context dev, mraa_boolean_t xonxoff, mraa_bo
         }
     }
 
-    // hardware flow control
-    int action = TCIOFF;
-    if (xonxoff) {
-        action = TCION;
-    }
-    if (tcflow(dev->fd, action)) {
-        return MRAA_ERROR_FEATURE_NOT_SUPPORTED;
-    }
-
-    // rtscts
     struct termios termio;
 
     // get current modes
     if (tcgetattr(dev->fd, &termio)) {
         syslog(LOG_ERR, "uart%i: set_flowcontrol: tcgetattr() failed: %s", dev->index, strerror(errno));
          return MRAA_ERROR_INVALID_RESOURCE;
+    }
+
+    if (xonxoff) {
+        termio.c_iflag |= IXON|IXOFF;
+    } else {
+        termio.c_iflag &= ~(IXON|IXOFF);
     }
 
     if (rtscts) {
